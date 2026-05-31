@@ -12,35 +12,30 @@ def calculate_returns(prices):
     return returns
 
 
-def generate_signal(returns):
+def generate_signals(returns):
     signals = []
     for r in returns:
-        if r > 2:
+        if r > 1:
             signals.append("BUY")
-        elif r < -2:
+        elif r < -1:
             signals.append("SELL")
         else:
             signals.append("HOLD")
     return signals
 
 
-def trend_confirmation(signals):
-    confirmations = []
-    for i in range(1, len(signals)):
-        if signals[i] == "BUY" and signals[i-1] == "BUY":
-            confirmations.append("LONG TREND CONFIRMED")
-        elif signals[i] == "SELL" and signals[i-1] == "SELL":
-            confirmations.append("SHORT TREND CONFIRMED")
-        else:
-            confirmations.append("NO CONFIRMATION")
-    return confirmations
+def calculate_average(prices):
+    total = 0
+    for price in prices:
+        total += price
+    average = total / len(prices)
+    return round(average, 3)
 
 
-prices = [100, 103, 105, 104, 101, 104, 105.5, 106, 108, 107]
+prices = [124, 1232, 2323, 24234, 32534, 32534]
 returns = calculate_returns(prices)
-signals = generate_signal(returns)
-confirmation = trend_confirmation(signals)
+signals = generate_signals(returns)
 
+print("Average:", calculate_average(prices))
 print("Returns:", [round(r, 2) for r in returns])
 print("Signals:", signals)
-print("Trend Confirmation", confirmation)
