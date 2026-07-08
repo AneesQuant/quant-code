@@ -1,4 +1,4 @@
-Marty Meehan  # ============================================================
+# ============================================================
 #   Quant Trading System — Basic Signal & Backtest Engine
 #   Author: Anees
 #   Description: Price returns, signal generation, backtesting
@@ -40,13 +40,17 @@ def trend_confirmation(signals):
     return confirmed
 
 
-def backtest(prices, signals):
-    """Simple long-only backtest: buy on BUY signal, sell on SELL signal."""
+def backtest(prices, signals, starting_capital=10000):
+    """Long-only backtest with drawdown and full performance stats."""
     position = None
     entry_price = 0
     total_profit = 0
     trades = 0
     wins = 0
+    profits = []
+    peak = 0
+    max_drawdown = 0
+    running = 0
 
     for i in range(len(signals)):
         signal = signals[i]
@@ -61,20 +65,38 @@ def backtest(prices, signals):
             profit = price - entry_price
             total_profit += profit
             trades += 1
+            profits.append(round(profit, 2))
             if profit > 0:
                 wins += 1
             print(f"  SELL at ${price:<8} | Profit: ${round(profit, 2)}")
             position = None
+            running += profit
+            if running > peak:
+                peak = running
+            if (peak - running) > max_drawdown:
+                max_drawdown = peak - running
 
-    # ── Win Rate Calculation ─────────────────────────────
+    # ── Stats ────────────────────────────────────────────
     win_rate = round((wins / trades) * 100, 2) if trades > 0 else 0
+    avg_profit = round(sum(profits) / len(profits), 2) if profits else 0
+    total_return = round((total_profit / starting_capital) * 100, 2)
+    losses = trades - wins
+    avg_win = round(sum(p for p in profits if p > 0) /
+                    wins, 2) if wins > 0 else 0
+    avg_loss = round(sum(p for p in profits if p < 0) /
+                     losses, 2) if losses > 0 else 0
+    rr_ratio = round(avg_win / abs(avg_loss), 2) if avg_loss != 0 else 0
 
     print("=" * 45)
-    print(f"  Total Trades : {trades}")
-    print(f"  Winning Trades : {wins}")
-    print(f"  Losing Trades  : {trades - wins}")
+    print(f"  Total Trades   : {trades}")
     print(f"  Win Rate       : {win_rate}%")
-    print(f"  Total Profit : ${round(total_profit, 2)}")
+    print(f"  Avg Profit     : ${avg_profit}")
+    print(f"  Avg Win        : ${avg_win}")
+    print(f"  Avg Loss       : ${avg_loss}")
+    print(f"  Risk/Reward    : {rr_ratio}")
+    print(f"  Max Drawdown   : ${round(max_drawdown, 2)}")
+    print(f"  Total Return   : {total_return}%")
+    print(f"  Total Profit   : ${round(total_profit, 2)}")
     print("=" * 45)
 
 
@@ -86,9 +108,6 @@ def market_summary(prices, returns):
     print("=" * 45)
     print("        QUANT TRADING DASHBOARD")
     print("=" * 45)
-    print(f"  Highest Price  : ${max(prices)}")
-    print(f"  Lowest Price   : ${min(prices)}")
-    print(f"  Average Price  : ${round(sum(prices) / len(prices), 2)}")
     print(f"  Start Price    : ${prices[0]}")
     print(f"  End Price      : ${prices[-1]}")
     print(f"  Total Change   : {price_change}%")
@@ -109,7 +128,6 @@ confirmations = trend_confirmation(signals)
 
 # ── DASHBOARD ───────────────────────────────────────────────
 market_summary(prices, returns)
-print(f"  Returns      : {returns}")
 print(f"  Signals      : {signals}")
 print(f"  Confirmation : {confirmations}")
 print("=" * 45)
