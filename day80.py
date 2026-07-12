@@ -1,6 +1,6 @@
 # ============================================================
 #   Quant Trading System — Basic Signal & Backtest Engine
-#   Author: William
+#   Author: Anees
 #   Description: Price returns, signal generation, backtesting
 # ============================================================
 
@@ -19,13 +19,6 @@ def calculate_volatility(returns):
     avg = sum(returns) / len(returns)
     variance = sum((r - avg) ** 2 for r in returns) / (len(returns) - 1)
     return round(variance ** 0.5, 4)
-
-
-def momentum_score(prices, window=5):
-    """Calculate momentum: latest price vs price N days ago."""
-    score = round(((prices[-1] - prices[-window]) / prices[-window]) * 100, 2)
-    trend = "BULLISH" if score > 0 else "BEARISH"
-    return score, trend
 
 
 def generate_signals(returns, buy_threshold=1.0, sell_threshold=-1.0):
@@ -111,11 +104,10 @@ def backtest(prices, signals, capital=10000, risk_pct=0.02):
 
 
 def market_summary(prices, returns):
-    """Print dashboard with volatility and momentum."""
+    """Print a dashboard summary with volatility."""
     avg_return = round(sum(returns) / len(returns), 2)
     price_change = round(((prices[-1] - prices[0]) / prices[0]) * 100, 2)
     volatility = calculate_volatility(returns)
-    score, trend = momentum_score(prices)
 
     print("=" * 45)
     print("        QUANT TRADING DASHBOARD")
@@ -123,9 +115,10 @@ def market_summary(prices, returns):
     print(f"  Start Price    : ${prices[0]}")
     print(f"  End Price      : ${prices[-1]}")
     print(f"  Total Change   : {price_change}%")
+    print(f"  Best Return    : {max(returns)}%")
+    print(f"  Worst Return   : {min(returns)}%")
     print(f"  Average Return : {avg_return}%")
     print(f"  Volatility     : {volatility}%")
-    print(f"  Momentum       : {score}% ({trend})")
     print("=" * 45)
 
 
@@ -133,7 +126,7 @@ def market_summary(prices, returns):
 prices = [180, 182, 178, 185, 190, 188, 195,
           197, 201, 199, 203, 208, 205, 209, 211]
 
-# ── CALCULATIONS ────────────────────────────────────────────
+# ── CALCULATIONS ────────-────────────────────────────────────
 returns = calculate_returns(prices)
 signals = generate_signals(returns)
 confirmations = trend_confirmation(signals)
@@ -147,7 +140,5 @@ print("=" * 45)
 # ── BACKTEST ─────────────────────────────────────────────────
 print("\n          Backtest Results")
 print("=" * 45)
+
 backtest(prices, signals)
-
-
-# Add momentum score and bullish/bearish trend label
