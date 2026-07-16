@@ -14,36 +14,6 @@ def calculate_returns(prices):
     return returns
 
 
-def calculate_volatility(returns):
-    """Calculate volatility as standard deviation of returns."""
-    avg = sum(returns) / len(returns)
-    variance = sum((r - avg) ** 2 for r in returns) / (len(returns) - 1)
-    return round(variance ** 0.5, 4)
-
-
-def momentum_score(prices, window=5):
-    """Calculate momentum: latest price vs price N days ago."""
-    score = round(((prices[-1] - prices[-window]) / prices[-window]) * 100, 2)
-    return score, "BULLISH" if score > 0 else "BEARISH"
-
-
-def moving_average(prices, window=5):
-    """Calculate simple moving average over a given window."""
-    return round(sum(prices[-window:]) / window, 2)
-
-
-def calculate_rsi(prices, period=14):
-    """RSI: above 70 overbought, below 30 oversold."""
-    gains = [max(prices[i]-prices[i-1], 0) for i in range(1, len(prices))]
-    losses = [abs(min(prices[i]-prices[i-1], 0))
-              for i in range(1, len(prices))]
-    ag, al = sum(gains[-period:]) / period, sum(losses[-period:]) / period
-    if al == 0:
-        return 100, "OVERBOUGHT"
-    rsi = round(100 - (100 / (1 + ag / al)), 2)
-    return rsi, "OVERBOUGHT" if rsi > 70 else "OVERSOLD" if rsi < 30 else "NEUTRAL"
-
-
 def generate_signals(returns, buy_threshold=1.0, sell_threshold=-1.0):
     """Generate BUY, SELL, or HOLD signals based on return thresholds."""
     signals = []
@@ -70,70 +40,82 @@ def trend_confirmation(signals):
     return confirmed
 
 
-def backtest(prices, signals, capital=10000, risk_pct=0.02):
-    """Backtest with position sizing and performance stats."""
-    position, entry_price, total_profit = None, 0, 0
-    trades, wins, profits = 0, 0, []
-    peak, max_drawdown, running = 0, 0, 0
+def backtest(prices, signals):
+    """Long-only backtest with win rate, streak, and avg profit tracking."""
+    position = None
+    entry_price = 0
+    total_profit = 0
+    trades = 0
+    wins = 0
+
+    current_streak = 0
+    best_win_streak = 0
+    worst_loss_streak = 0
+    temp_loss_streak = 0
+    profits = []
 
     for i in range(len(signals)):
         signal = signals[i]
         price = prices[i + 1]
-        shares = int((capital * risk_pct) / price)
 
         if signal == "BUY" and position is None:
-            position, entry_price = "LONG", price
-            print(f"  BUY  at ${entry_price} | Shares: {shares}")
+            position = "LONG"
+            entry_price = price
+            print(f"  BUY  at ${entry_price}")
 
         elif signal == "SELL" and position == "LONG":
-            profit = (price - entry_price) * shares
+            profit = price - entry_price
             total_profit += profit
             trades += 1
             profits.append(round(profit, 2))
+            print(f"  SELL at ${price:<8} | Profit: ${round(profit, 2)}")
+            position = None
+
             if profit > 0:
                 wins += 1
-            print(f"  SELL at ${price:<6} | Profit: ${round(profit, 2)}")
-            position = None
-            running += profit
-            if running > peak:
-                peak = running
-            if (peak - running) > max_drawdown:
-                max_drawdown = peak - running
+                current_streak += 1
+                temp_loss_streak = 0
+                if current_streak > best_win_streak:
+                    best_win_streak = current_streak
+            else:
+                temp_loss_streak += 1
+                current_streak = 0
+                if temp_loss_streak > worst_loss_streak:
+                    worst_loss_streak = temp_loss_streak
 
+    # ── Stats ────────────────────────────────────────────
     win_rate = round((wins / trades) * 100, 2) if trades > 0 else 0
-    losses = trades - wins
-    avg_win = round(sum(p for p in profits if p > 0) /
-                    wins, 2) if wins > 0 else 0
-    avg_loss = round(sum(p for p in profits if p < 0) /
-                     losses, 2) if losses > 0 else 0
+    avg_profit = round(sum(profits) / len(profits), 2) if profits else 0
 
     print("=" * 45)
     print(f"  Total Trades   : {trades}")
+    print(f"  Winning Trades : {wins}")
+    print(f"  Losing Trades  : {trades - wins}")
     print(f"  Win Rate       : {win_rate}%")
-    print(f"  Avg Win        : ${avg_win}")
-    print(f"  Avg Loss       : ${avg_loss}")
-    print(
-        f"  Risk/Reward    : {round(avg_win/abs(avg_loss), 2) if avg_loss != 0 else 0}")
-    print(f"  Max Drawdown   : ${round(max_drawdown, 2)}")
+    print(f"  Avg Profit     : ${avg_profit}")
+    print(f"  Best Win Streak  : {best_win_streak} trades")
+    print(f"  Worst Loss Streak: {worst_loss_streak} trades")
     print(f"  Total Profit   : ${round(total_profit, 2)}")
     print("=" * 45)
 
 
 def market_summary(prices, returns):
-    """Print dashboard with volatility, momentum, MA and RSI."""
-    score, trend = momentum_score(prices)
-    rsi, label = calculate_rsi(prices)
+    """Print a dashboard summary of price and return statistics."""
+    avg_return = round(sum(returns) / len(returns), 2)
+    price_change = round(((prices[-1] - prices[0]) / prices[0]) * 100, 2)
+
     print("=" * 45)
     print("        QUANT TRADING DASHBOARD")
     print("=" * 45)
+    print(f"  Highest Price  : ${max(prices)}")
+    print(f"  Lowest Price   : ${min(prices)}")
+    print(f"  Average Price  : ${round(sum(prices) / len(prices), 2)}")
     print(f"  Start Price    : ${prices[0]}")
     print(f"  End Price      : ${prices[-1]}")
-    print(
-        f"  Total Change   : {round(((prices[-1]-prices[0])/prices[0])*100, 2)}%")
-    print(f"  Volatility     : {calculate_volatility(returns)}%")
-    print(f"  Momentum       : {score}% ({trend})")
-    print(f"  5-Day MA       : ${moving_average(prices)}")
-    print(f"  RSI            : {rsi} ({label})")
+    print(f"  Total Change   : {price_change}%")
+    print(f"  Best Return    : {max(returns)}%")
+    print(f"  Worst Return   : {min(returns)}%")
+    print(f"  Average Return : {avg_return}%")
     print("=" * 45)
 
 
@@ -148,6 +130,7 @@ confirmations = trend_confirmation(signals)
 
 # ── DASHBOARD ───────────────────────────────────────────────
 market_summary(prices, returns)
+print(f"  Returns      : {returns}")
 print(f"  Signals      : {signals}")
 print(f"  Confirmation : {confirmations}")
 print("=" * 45)
